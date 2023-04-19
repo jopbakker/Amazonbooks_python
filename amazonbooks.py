@@ -67,10 +67,9 @@ def read_input_csv(author_list):
     return author_list
 
 def download_html(author_url):
-    headers = {
-    'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36'),
-    'Accept-Language': 'en-US, en;q=0.5'
-    }
+    headers = ({'User-Agent':
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36',
+            'Accept-Language': 'en-US, en;q=0.5'})
     logging.info(f"Downloading the HTML code from {author_url}")
     raw_html = requests.get(author_url, headers=headers).text
     
