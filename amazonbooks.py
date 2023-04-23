@@ -91,11 +91,15 @@ def test_amazon_request(user_agent_list):
         raw_html = requests.get(test_url, headers=headers).text
         bad_ua = re.search('To discuss automated access to Amazon data please contact api-services-support@amazon.com.',str(raw_html))
 
-        if not bad_ua:
+        if bad_ua:
+            logging.debug("Fail on user agent: {}".format(user_agent))
+        else:
+            logging.info("Success on user agent string: {}".format(user_agent))
             return headers
 
-def download_html(author_url, headers):
-    logging.info(f"Downloading the HTML code from {author_url}")
+def download_html(author,author_url, headers):
+    logging.info("Start looking for need books for author: {}".format(author))
+    logging.debug(f"Downloading the HTML code from {author_url}")
     raw_html = requests.get(author_url, headers=headers).text
     
     return raw_html
@@ -188,6 +192,8 @@ def compare_books(author, new_books, known_books):
             message.append(book)
         message = " \n".join(message)
         logging.info("Found new or updated books for author: {} \nBooks: {}\n".format(author, message))
+    else:
+        logging.info("No new books or updates found for author: {}".format(author))
     
     return new_or_updated_books
 
@@ -228,11 +234,9 @@ def send_pushover_message(author, new_or_updated_books, user_token, api_token):
 
 
 
-def check_author(author,author_url,author_file_location,user_token, api_token):
-    logging.info("Start looking for need books for author: {}".format(author))
-    user_agent_list=download_user_agent_list()
-    header = test_amazon_request(user_agent_list)
-    author_html = download_html(author_url,header) # get raw html from author recent book page -- output: raw html
+def check_author(author,author_url,author_file_location,header,user_token, api_token):
+
+    author_html = download_html(author,author_url,header) # get raw html from author recent book page -- output: raw html
     new_books = parse_html(author,author_html) # get current books -- output: dict with current book data
     known_books = read_author_file(author_file_location) # get existing book -- output: dict with known books
     new_or_updated_books = compare_books(author, new_books, known_books) # compare new and known books -- output: dict of new or updates books
@@ -240,8 +244,6 @@ def check_author(author,author_url,author_file_location,user_token, api_token):
         if new_or_updated_books: # update author file with new books -- output author file with all books and up-to-date release date
             update_author_file(author_file_location, new_or_updated_books, known_books)
             send_pushover_message(author, new_or_updated_books, user_token, api_token)
-        else:
-            logging.info("No new books or updates found for author: {}".format(author))
 
 def main():
     logging.info("Executing the script with the following arguments: {}".format(sys.argv[1:]))
@@ -249,12 +251,15 @@ def main():
     author_files_folder = args.author_files_folder
     author_list = read_input_csv(args.author_list)
 
+    user_agent_list=download_user_agent_list()
+    header = test_amazon_request(user_agent_list)
+
     if author == "all":
         for row in author_list:
             author = row["author"]
             author_url = row["url"]
             author_file_location = "{}/{}.json".format(author_files_folder,author.replace(" ","_"))
-            check_author(author, author_url, author_file_location, args.user_token, args.api_token)
+            check_author(author,author_url,author_file_location,header,args.user_token,args.api_token)
     else:
         for row in author_list:
             found_author = False
@@ -262,7 +267,7 @@ def main():
                 found_author = True
                 author_url = row["url"]
                 author_file_location = "{}/{}.json".format(author_files_folder,author.replace(" ","_"))
-                check_author(author, author_url, author_file_location, args.user_token, args.api_token)
+                check_author(author,author_url,author_file_location,header,args.user_token,args.api_token)
                 break
         if not found_author:
             logging.error("Author {} not found in author list.".format(author))
