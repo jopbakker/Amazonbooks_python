@@ -7,6 +7,7 @@ import csv
 import json
 import logging
 import lxml
+import random
 import re
 import requests
 import sys
@@ -66,10 +67,34 @@ def read_input_csv(author_list):
     
     return author_list
 
-def download_html(author_url):
+def download_user_agent_list():
+    ua_raw_url = "https://gist.githubusercontent.com/pzb/b4b6f57144aea7827ae4/raw/cf847b76a142955b1410c8bcef3aabe221a63db1/user-agents.txt"
+
     headers = ({'User-Agent':
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/44.0.2403.157 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:38.0) Gecko/20100101 Firefox/38.0 SeaMonkey/2.35',
             'Accept-Language': 'en-US, en;q=0.5'})
+    raw_html = requests.get(ua_raw_url, headers=headers).text
+    user_agent_list = list(raw_html.split("\n"))
+    random.shuffle(user_agent_list)
+
+    return user_agent_list
+
+
+def test_amazon_request(user_agent_list):
+    test_url = 'https://www.amazon.com/s?k="Robin+Hobb"&i=digital-text&s=date-desc-rank'
+    
+
+    for user_agent in user_agent_list:
+        headers = ({'User-Agent':
+                f'{user_agent}',
+                'Accept-Language': 'en-US, en;q=0.5'})
+        raw_html = requests.get(test_url, headers=headers).text
+        bad_ua = re.search('To discuss automated access to Amazon data please contact api-services-support@amazon.com.',str(raw_html))
+
+        if not bad_ua:
+            return headers
+
+def download_html(author_url, headers):
     logging.info(f"Downloading the HTML code from {author_url}")
     raw_html = requests.get(author_url, headers=headers).text
     
@@ -205,8 +230,9 @@ def send_pushover_message(author, new_or_updated_books, user_token, api_token):
 
 def check_author(author,author_url,author_file_location,user_token, api_token):
     logging.info("Start looking for need books for author: {}".format(author))
-
-    author_html = download_html(author_url) # get raw html from author recent book page -- output: raw html
+    user_agent_list=download_user_agent_list()
+    header = test_amazon_request(user_agent_list)
+    author_html = download_html(author_url,header) # get raw html from author recent book page -- output: raw html
     new_books = parse_html(author,author_html) # get current books -- output: dict with current book data
     known_books = read_author_file(author_file_location) # get existing book -- output: dict with known books
     new_or_updated_books = compare_books(author, new_books, known_books) # compare new and known books -- output: dict of new or updates books
