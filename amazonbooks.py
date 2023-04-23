@@ -234,8 +234,9 @@ def send_pushover_message(author, new_or_updated_books, user_token, api_token):
 
 
 
-def check_author(author,author_url,author_file_location,header,user_token, api_token):
-
+def check_author(author,author_url,author_file_location,user_agent_list,user_token, api_token):
+    
+    header = test_amazon_request(user_agent_list)
     author_html = download_html(author,author_url,header) # get raw html from author recent book page -- output: raw html
     new_books = parse_html(author,author_html) # get current books -- output: dict with current book data
     known_books = read_author_file(author_file_location) # get existing book -- output: dict with known books
@@ -252,14 +253,13 @@ def main():
     author_list = read_input_csv(args.author_list)
 
     user_agent_list=download_user_agent_list()
-    header = test_amazon_request(user_agent_list)
 
     if author == "all":
         for row in author_list:
             author = row["author"]
             author_url = row["url"]
             author_file_location = "{}/{}.json".format(author_files_folder,author.replace(" ","_"))
-            check_author(author,author_url,author_file_location,header,args.user_token,args.api_token)
+            check_author(author,author_url,author_file_location,user_agent_list,args.user_token,args.api_token)
     else:
         for row in author_list:
             found_author = False
@@ -267,7 +267,7 @@ def main():
                 found_author = True
                 author_url = row["url"]
                 author_file_location = "{}/{}.json".format(author_files_folder,author.replace(" ","_"))
-                check_author(author,author_url,author_file_location,header,args.user_token,args.api_token)
+                check_author(author,author_url,author_file_location,user_agent_list,args.user_token,args.api_token)
                 break
         if not found_author:
             logging.error("Author {} not found in author list.".format(author))
